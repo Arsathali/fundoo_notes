@@ -5,12 +5,23 @@ import { createLabelService,
          deleteLabelService,
          getNotesByLabelService
  } from "../service/label.service.js";
+import { labelSchema } from "../validation/label.validation.js";
 
 /**
  * CREATE LABEL
  */
 export const createLabel = async (req, res, next) => {
     try {
+
+        /**
+        * VALIDATION 
+        */
+        const {error} = labelSchema.validate(req.body);
+        
+        if(error){
+            throw new AppError(error.details[0].message,400);
+        }
+        
         const label =  await createLabelService(req.body.name, req.userId);
         res.send({message : "success" , data : label});
     }catch(err){

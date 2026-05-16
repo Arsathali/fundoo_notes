@@ -14,9 +14,13 @@ import {
     addLabelToNoteService,
     removeLabelFromNoteService,
     getArchivedNotesService,
-    getTrashNotesService
+    getTrashNotesService,
+    addCollaboratorService
     }
      from "../service/note.service.js"
+import { collaboratorSchema } from "../validation/collaborator.validator.js";
+import AppError from "../utils/AppError.js";
+import { noteSchema } from "../validation/note.validator.js";
 
 
 /**
@@ -25,6 +29,16 @@ import {
 export const createNote = async (req , res , next) => {
 
     try {
+
+        /**
+        * VALIDATION 
+        */
+        const {error} = noteSchema.validate(req.body);
+                
+        if(error){
+            throw new AppError(error.details[0].message,400);
+        }
+
         const note =  await createNoteService(req.body, req.userId);
 
         return res.status(201).json({
@@ -188,6 +202,26 @@ export const deleteReminder = async (req, res, next) => {
         next(err);
     }
 }
+
+export const addCollaborators =  async (req, res, next) => {
+
+    try {
+
+       /**
+        * VALIDATION 
+        */
+        const {error} = collaboratorSchema.validate(req.body);
+       
+        if(error){
+              throw new AppError(error.details[0].message,400);
+        }
+
+       const note = await addCollaboratorService(req.userId , req.params.noteId , req.body.collaborators);
+       res.json({ data : note});
+    }catch(err){
+        next(err);
+    }
+} 
 
 
 /**

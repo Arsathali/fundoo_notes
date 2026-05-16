@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../model/user.model.js";
 import AppError from "../utils/AppError.js";
+import { getChannel } from "../config/rabitMq.js";
 
 /**
  * Utility: Generate JWT
@@ -16,16 +17,10 @@ const generateToken = (payload, expiresIn = process.env.JWT_EXPIRES_IN) => {
  */
 export const registerUser = async (name, email, password) => {
 
-  console.log(name,password,email);
-  
-  if (!name || !email || !password) {
-    throw new AppError("Invalid credentials", 401);
-  }
-
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
-    throw new AppError("User already exists",401);
+    throw new AppError("User already exists",409);
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -36,9 +31,20 @@ export const registerUser = async (name, email, password) => {
     password: hashedPassword,
   });
 
+  const token = generateToken({
+    userId: user._id
+  });
+
   return {
     message: "User registered successfully",
-    user,
+
+    token : token ,
+
+    user : {
+      id: user._id,
+      name: user.name,
+      email: user.email
+    }
   };
 };
 
@@ -46,27 +52,30 @@ export const registerUser = async (name, email, password) => {
  * LOGIN LOGIC
  */
 export const loginUser = async (email, password) => {
-  
-  if (!email || !password) {
-    throw new AppError("Invalid credentials", 401);
-  }
 
   const user = await User.findOne({ email });
 
   if (!user) {
-    throw new AppError("User Not Found",401);
+    throw new AppError("Invalid email or password",401);
+  }
+
+  if(!user.password){
+      throw new AppError(
+        "Please login using Google",
+        401
+    );
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
-    throw new AppError("Wrong Password",401);
+    throw new AppError("Invalid email or password",401);
   }
 
   const token = generateToken({ userId: user._id });
 
   return {
-     message : "User Logged In",
+     message : "User logged in successfully",
      token 
     };
 };
@@ -95,9 +104,28 @@ export const generateResetToken = async (email) => {
     "10m"
   );
 
+  const resetLink = `http://localhost:3000/api/auth/reset-password?token=${token}`;
+  const channel = getChannel();
+
+  channel.sendToQueue(
+
+      "emailQueue",
+
+      Buffer.from(
+
+          JSON.stringify({
+
+            email,
+
+            type: "resetPassword",
+
+            resetLink
+          })
+      )
+  );
+
   return {
-    message: "Reset token generated",
-    token,
+    message: "Reset link sent successfully",
   };
 };
 
@@ -126,7 +154,7 @@ export const resetUserPassword = async (token, newPassword) => {
   const user = await User.findById(decoded.userId);
 
   if (!user) {
-    throw new AppError("User not found", 401);
+    throw new AppError("User not found", 404);
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);

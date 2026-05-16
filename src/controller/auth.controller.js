@@ -1,4 +1,6 @@
 import * as authService from "../service/auth.service.js";
+import AppError from "../utils/AppError.js";
+import { registerSchema } from "../validation/auth.validator.js";
 
 
 
@@ -7,6 +9,16 @@ import * as authService from "../service/auth.service.js";
  */
 export const register = async (req, res, next) => {
   try {
+
+    /**
+     * VALIDATION 
+     */
+    const {error} = registerSchema.validate(req.body);
+
+    if(error){
+       throw new AppError(error.details[0].message,400);
+    }
+    
     const { name, email, password } = req.body;
     
     const result = await authService.registerUser(name, email, password);
@@ -50,16 +62,17 @@ export const login = async (req, res, next) => {
  * FORGOT PASSWORD
  */
 export const forgetPassword = async (req, res, next) => {
-  try {
-    const { email } = req.body;
 
-    const result = await authService.generateResetToken(email);
+    try {
+      const { email } = req.body;
 
-    return res.status(200).json(result);
+      const result = await authService.generateResetToken(email);
 
-  } catch (err) {
-    next(err);
-  }
+      return res.status(200).json(result);
+
+    } catch (err) {
+      next(err);
+    }
 };
 
 

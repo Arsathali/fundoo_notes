@@ -52,7 +52,14 @@ const noteSchema = new mongoose.Schema(
         reminder: {
             type: Date,
             default: null
-        }
+        }, 
+
+        collaborators: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User"
+            }
+        ]
     }, {timestamps: true} )
 
 const Note = mongoose.model("Note",noteSchema);
